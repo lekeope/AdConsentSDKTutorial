@@ -159,7 +159,7 @@ class MainActivity : AppCompatActivity() {
                         if (userWantsAdFree) {
                             // Buy or Subscribe
                             Log.d(TAG, "Requesting Consent: User prefers AdFree")
-                            // This is where you write your Intent to launch the purchase flow dialog
+                            // TODO This is where you write your Intent to launch the purchase flow dialog
 
                         } else {
                             Log.d(TAG, "Requesting Consent: onConsentFormClosed. Consent Status = $consentStatus")
