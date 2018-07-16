@@ -1,6 +1,7 @@
 package com.edgedevstudio.consenttutorial
 
 import android.os.Bundle
+import android.os.PersistableBundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.View
@@ -11,18 +12,22 @@ import com.google.android.gms.ads.reward.RewardedVideoAd
 import java.net.URL
 
 class MainActivity : AppCompatActivity() {
-    private var showPersonlisedAds = true
+    private var mShowPersonlAds = true
     private var mAdView: AdView? = null
     private var mInterstitialAd: InterstitialAd? = null
     private var mRewardedVideoAd: RewardedVideoAd? = null
     private var consentForm: ConsentForm? = null
+    private val SHOW_PERSONAL_ADS_KEY = "show.personal.ads.key"
 
     val TAG = "MainActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        if (savedInstanceState != null)
+            mShowPersonlAds = savedInstanceState.getBoolean(SHOW_PERSONAL_ADS_KEY)
         mAdView = findViewById(R.id.adViewMain)
+        initialiseAds()
         checkAdConsent()
     }
 
@@ -46,8 +51,8 @@ class MainActivity : AppCompatActivity() {
         consentInformation.requestConsentInfoUpdate(publisherIds, object : ConsentInfoUpdateListener {
             override fun onConsentInfoUpdated(consentStatus: ConsentStatus) {
                 when (consentStatus) {
-                    ConsentStatus.PERSONALIZED -> initialiseAds(true)
-                    ConsentStatus.NON_PERSONALIZED -> initialiseAds(false)
+                    ConsentStatus.PERSONALIZED -> loadAds(true)
+                    ConsentStatus.NON_PERSONALIZED -> loadAds(false)
                     ConsentStatus.UNKNOWN -> displayConsentForm()
                 }
                 Log.d(TAG, "onConsentInfoUpdated, Consent Status = ${consentStatus.name}")
@@ -59,17 +64,16 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun initialiseAds(showPersonlAds: Boolean) {
-        showPersonlisedAds = showPersonlAds
+    private fun loadAds(showPersonlAds: Boolean) {
+        mShowPersonlAds = showPersonlAds
         val build: AdRequest
-        if (showPersonlAds)
+        if (mShowPersonlAds)
             build = AdRequest.Builder()
                     .addNetworkExtrasBundle(AdMobAdapter::class.java, getNonPersonalizedAdsBundle())
                     .build()
         else
             build = AdRequest.Builder().build()
 
-        mAdView!!.loadAd(build)
         mAdView!!.adListener = object : AdListener() {
             override fun onAdClosed() {
                 mAdView!!.loadAd(build)
@@ -79,9 +83,15 @@ class MainActivity : AppCompatActivity() {
             override fun onAdFailedToLoad(p0: Int) {
                 super.onAdFailedToLoad(p0)
                 mAdView!!.loadAd(build)
+                Log.d(TAG, "onAdFailedToLoad Banner Ad")
             }
         }
+        mAdView!!.loadAd(build)
+        requestNewInterstitial()
+        loadRewardedVideoAd()
+    }
 
+    private fun initialiseAds() {
         mInterstitialAd = InterstitialAd(this)
         mInterstitialAd?.adUnitId = "ca-app-pub-3940256099942544/1033173712"
         mInterstitialAd?.adListener = object : AdListener() {
@@ -89,13 +99,7 @@ class MainActivity : AppCompatActivity() {
                 requestNewInterstitial()
             }
         }
-        requestNewInterstitial()
-
-        mInterstitialAd?.adListener?.onAdClosed()
-
-
         mRewardedVideoAd = MobileAds.getRewardedVideoAdInstance(this)
-        loadRewardedVideoAd()
     }
 
     private fun getNonPersonalizedAdsBundle(): Bundle {
@@ -106,7 +110,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestNewInterstitial() {
         val adRequest: AdRequest
-        if (showPersonlisedAds) {
+        if (mShowPersonlAds) {
             adRequest = AdRequest.Builder().build()
         } else {
             adRequest = AdRequest.Builder()
@@ -118,7 +122,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadRewardedVideoAd() {
         val adRequest: AdRequest
-        if (showPersonlisedAds) {
+        if (mShowPersonlAds) {
             adRequest = AdRequest.Builder().build()
         } else {
             adRequest = AdRequest.Builder()
@@ -164,9 +168,9 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             Log.d(TAG, "Requesting Consent: onConsentFormClosed. Consent Status = $consentStatus")
                             when (consentStatus) {
-                                ConsentStatus.PERSONALIZED -> initialiseAds(true)
-                                ConsentStatus.NON_PERSONALIZED -> initialiseAds(false)
-                                ConsentStatus.UNKNOWN -> initialiseAds(true)
+                                ConsentStatus.PERSONALIZED -> loadAds(true)
+                                ConsentStatus.NON_PERSONALIZED -> loadAds(false)
+                                ConsentStatus.UNKNOWN -> loadAds(true)
                             }
                         }
                     }
@@ -176,5 +180,10 @@ class MainActivity : AppCompatActivity() {
       //          .withAdFreeOption() TODO enable this option if you have created an inApp Purchase to eliminate Ads
                 .build()
         consentForm!!.load()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle?, outPersistentState: PersistableBundle?) {
+        super.onSaveInstanceState(outState, outPersistentState)
+        outState?.putBoolean(SHOW_PERSONAL_ADS_KEY, mShowPersonlAds)
     }
 }
